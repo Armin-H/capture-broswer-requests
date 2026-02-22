@@ -6,7 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 class RecordFetchBody(BaseModel):
-    url: str
+    destination_url: str
+    source_url: str
+    request_timestamp: int
     options: Optional[dict] = None
 
 app = FastAPI()
@@ -18,12 +20,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from collections import Counter
+url_lists = Counter()
+
 @app.get("/")
 def read_root():
     return {"message": "Hello, World!"}
 
 @app.post("/record_fetch")
 def record_fetch(body: RecordFetchBody):
-    print(f"Request made to: {body.url}")
-    print(f"Request options: {body.options.keys()}")
+    if body.destination_url != "/graphql":
+        return {"message": "Not a graphql request"}
+
+    print(f"request to: {body.destination_url} from {body.source_url}")
+    print(f"options: {body.options.keys()}")
+    url_lists[body.destination_url] += 1
     return {"message": "Request recorded"}
+
+@app.get("/get_url_lists")
+def get_url_lists():
+    return url_lists

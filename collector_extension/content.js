@@ -4,11 +4,13 @@ var originalFetch = window.fetch;
 
 window.fetch = function() {
     const [url, options] = arguments;
-    console.log("Request made to:", url);
-    console.log("Request options:", options);
-
+    // console.log("Request made to:", url);
+    // console.log("Request options:", options);
+    console.log("sending request to backend");
     const data = {
-        url : url,
+        destination_url : url,
+        request_timestamp : Date.now(),
+        source_url : window.location.href,
         options : options
     }
     originalFetch("http://localhost:8000/record_fetch",{
