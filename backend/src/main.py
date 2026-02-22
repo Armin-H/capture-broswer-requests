@@ -1,9 +1,12 @@
 from typing import Optional
+from collections import Counter
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel
+
+from database import get_session
 
 class RecordFetchBody(BaseModel):
     destination_url: str
@@ -20,7 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from collections import Counter
+
 url_lists = Counter()
 
 @app.get("/")
