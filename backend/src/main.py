@@ -6,7 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel
 
+from contextlib import asynccontextmanager
 from database import get_session
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
 
 class RecordFetchBody(BaseModel):
     destination_url: str
@@ -14,7 +19,7 @@ class RecordFetchBody(BaseModel):
     request_timestamp: int
     options: Optional[dict] = None
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
