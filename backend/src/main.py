@@ -7,10 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from contextlib import asynccontextmanager
-from database import get_session
+from database import create_tables, get_session, FetchRecord
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    create_tables()
     yield
 
 class RecordFetchBody(BaseModel):

@@ -1,7 +1,7 @@
 import os
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import create_engine, Column, Integer, String, JSON
+from sqlalchemy.orm import Session, declarative_base
 
 POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
@@ -16,6 +16,23 @@ engine = create_engine(DB_CONNECTION_STRING)
 def get_session():
     with Session(engine) as session:
         yield session
+
+Base = declarative_base()
+
+class FetchRecord(Base):
+
+    __tablename__ = "fetch_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    destination_url = Column(String)
+    source_url = Column(String)
+    request_timestamp = Column(Integer)
+    options = Column(JSON)
+
+def create_tables():
+    Base.metadata.create_all(bind=engine)
+    print("Tables created")
+
 
 # SessionLocal = sessionmaker(engine)
 # with SessionLocal() as session:
