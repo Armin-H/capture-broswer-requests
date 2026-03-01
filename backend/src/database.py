@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import create_engine, Column, Integer, String, JSON
+from sqlalchemy import BigInteger, create_engine, Column, Integer, String, JSON
 from sqlalchemy.orm import Session, declarative_base
 
 POSTGRES_USER = os.getenv("POSTGRES_USER")
@@ -26,7 +26,7 @@ class FetchRecord(Base):
     id = Column(Integer, primary_key=True, index=True)
     destination_url = Column(String)
     source_url = Column(String)
-    request_timestamp = Column(Integer)
+    request_timestamp = Column(BigInteger)
     options = Column(JSON)
 
 def create_tables():
