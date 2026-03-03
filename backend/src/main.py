@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from database import create_tables, get_session, FetchRecord
 from sqlalchemy.orm import Session
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 
 @asynccontextmanager
@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
     yield
 
 class RecordFetchBody(BaseModel):
+    id: str
     destination_url: str
     source_url: str
     request_timestamp: int
@@ -49,6 +50,7 @@ def record_fetch(body: RecordFetchBody, session: Session = Depends(get_session))
     url_lists[body.destination_url] += 1
 
     record = FetchRecord(
+        client_id=body.id,
         destination_url=body.destination_url,
         source_url=body.source_url,
         request_timestamp=body.request_timestamp,
@@ -56,12 +58,15 @@ def record_fetch(body: RecordFetchBody, session: Session = Depends(get_session))
     )
     session.add(record)
     session.commit()
-    session.refresh(record)
-    return {"message": "Request recorded", "id": record.id}
+    return {"message": "Request recorded", "id": body.id}
 
 @app.patch("/record_fetch/{record_id}/response")
-def update_fetch_response(record_id: str, body: dict):
-    print(f"PATCH received for record_id={record_id}: {body}")
+def update_fetch_response(record_id: str, body: dict, session: Session = Depends(get_session)):
+    record = session.query(FetchRecord).filter(FetchRecord.client_id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Record {record_id} not found")
+    record.response_data = body
+    session.commit()
     return {"message": "Response received"}
 
 @app.get("/get_url_lists")

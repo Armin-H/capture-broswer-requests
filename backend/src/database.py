@@ -24,10 +24,12 @@ class FetchRecord(Base):
     __tablename__ = "fetch_records"
 
     id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(String, unique=True, index=True)
     destination_url = Column(String)
     source_url = Column(String)
     request_timestamp = Column(BigInteger)
     options = Column(JSON)
+    response_data = Column(JSON, nullable=True)
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
