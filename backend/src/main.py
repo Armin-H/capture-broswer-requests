@@ -59,6 +59,11 @@ def record_fetch(body: RecordFetchBody, session: Session = Depends(get_session))
     session.refresh(record)
     return {"message": "Request recorded", "id": record.id}
 
+@app.patch("/record_fetch/{record_id}/response")
+def update_fetch_response(record_id: str, body: dict):
+    print(f"PATCH received for record_id={record_id}: {body}")
+    return {"message": "Response received"}
+
 @app.get("/get_url_lists")
 def get_url_lists():
     return url_lists
