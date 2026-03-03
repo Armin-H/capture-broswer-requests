@@ -56,8 +56,8 @@ def record_fetch(body: RecordFetchBody, session: Session = Depends(get_session))
     )
     session.add(record)
     session.commit()
-
-    return {"message": "Request recorded"}
+    session.refresh(record)
+    return {"message": "Request recorded", "id": record.id}
 
 @app.get("/get_url_lists")
 def get_url_lists():

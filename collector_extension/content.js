@@ -4,8 +4,7 @@ var originalFetch = window.fetch;
 
 window.fetch = function() {
     const [url, options] = arguments;
-    // console.log("Request made to:", url);
-    // console.log("Request options:", options);
+
     console.log("sending request to backend");
     const data = {
         destination_url : url,
@@ -19,7 +18,7 @@ window.fetch = function() {
         body: JSON.stringify(data)
     })
     .then(response => response.json())
-    .then(data => console.log(data))
+    .then(data => console.log("Request ID:", data.id))
     .catch(error => console.error("Error:", error));
     return originalFetch.apply(this, arguments);
 };
