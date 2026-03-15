@@ -12,6 +12,7 @@ from sqlalchemy import (
     JSON,
     Column,
     Float,
+    ForeignKey,
     Integer,
     String,
     Text,
@@ -81,9 +82,9 @@ class JobListing(Base):
     sub_classification = Column(String, nullable=True)
     sub_classification_id = Column(String, nullable=True)
     salary_label = Column(String, nullable=True)
-    advertiser_id = Column(String, nullable=False)
+    advertiser_id = Column(String, ForeignKey("advertisers.id"), nullable=False)
     advertiser_name = Column(String, nullable=False)
-    company_id = Column(String, nullable=True)
+    company_id = Column(String, ForeignKey("companies.id"), nullable=True)
 
 
 def extract():
@@ -178,26 +179,36 @@ def transform(fetch_record_id: int, raw: dict) -> tuple[AdvertiserSilver | None,
 
 
 def load(records: list[tuple[AdvertiserSilver | None, CompanySilver | None, JobListingSilver]]):
-    """Load validated records into silver tables. Uses INSERT ... ON CONFLICT DO NOTHING for idempotency."""
+    """Load validated records into silver tables. Drops and recreates all tables, then inserts fresh data."""
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
+    # Deduplicate advertisers and companies (same entity can appear in multiple job records)
+    advertisers: dict[str, AdvertiserSilver] = {}
+    companies: dict[str, CompanySilver] = {}
+    for advertiser, company, job in records:
+        if advertiser and advertiser.id not in advertisers:
+            advertisers[advertiser.id] = advertiser
+        if company and company.id not in companies:
+            companies[company.id] = company
+
     with SessionLocal() as session:
-        for advertiser, company, job in records:
-            if advertiser:
-                session.merge(Advertiser(id=advertiser.id, name=advertiser.name))
-            if company:
-                session.merge(
-                    Company(
-                        id=company.id,
-                        name=company.name,
-                        rating=company.rating,
-                        num_reviews=company.num_reviews,
-                        size=company.size,
-                        industry=company.industry,
-                        website=company.website,
-                    )
+        for advertiser in advertisers.values():
+            session.add(Advertiser(id=advertiser.id, name=advertiser.name))
+        for company in companies.values():
+            session.add(
+                Company(
+                    id=company.id,
+                    name=company.name,
+                    rating=company.rating,
+                    num_reviews=company.num_reviews,
+                    size=company.size,
+                    industry=company.industry,
+                    website=company.website,
                 )
-            session.merge(
+            )
+        for _, _, job in records:
+            session.add(
                 JobListing(
                     id=job.id,
                     fetch_record_id=job.fetch_record_id,
@@ -244,8 +255,5 @@ def run():
 
 
 if __name__ == "__main__":
-    rows = extract()
-    records = []
-    for id,body in rows:
-        records.append(transform(id, body))
+    run()
 
