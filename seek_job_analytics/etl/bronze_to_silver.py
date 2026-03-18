@@ -93,7 +93,7 @@ def extract():
         SELECT id, (response_data->>'body')::jsonb AS body
         FROM fetch_records
         WHERE destination_url = '/graphql'
-        AND (options->>'body')::jsonb->>'operationName' = 'jobDetailsWithPersonalised'
+        AND (options->>'body')::jsonb->>'operationName' in ('jobDetails', 'jobDetailsWithPersonalised')
         AND response_data IS NOT NULL
     """)
     with engine.connect() as conn:
