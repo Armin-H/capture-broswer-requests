@@ -5,6 +5,7 @@ Bronze → Silver ETL: Extract from fetch_records, transform with Pydantic, load
 import json
 import os
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -88,9 +89,13 @@ class JobListing(Base):
 
 
 def extract():
-    """Read raw job listing JSON from fetch_records (bronze). Returns (fetch_record_id, body)."""
+    """Read raw job listing JSON from fetch_records (bronze).
+
+    Returns list of (fetch_record_id, request_timestamp, body).
+    request_timestamp may be None; callers treat None as older than any real timestamp.
+    """
     query = text("""
-        SELECT id, (response_data->>'body')::jsonb AS body
+        SELECT id, request_timestamp, (response_data->>'body')::jsonb AS body
         FROM fetch_records
         WHERE destination_url = '/graphql'
         AND (options->>'body')::jsonb->>'operationName' in ('jobDetails', 'jobDetailsWithPersonalised')
@@ -98,7 +103,7 @@ def extract():
     """)
     with engine.connect() as conn:
         rows = conn.execute(query).fetchall()
-    return [(row[0], row[1]) for row in rows]
+    return [(row[0], row[1], row[2]) for row in rows]
 
 
 def _safe_get(data: dict, *keys, default=None):
@@ -178,6 +183,24 @@ def transform(fetch_record_id: int, raw: dict) -> tuple[AdvertiserSilver | None,
     return advertiser_silver, company_silver, job_silver
 
 
+ScrapedRow = tuple[AdvertiserSilver | None, CompanySilver | None, JobListingSilver, int]
+
+
+def dedupe_jobs_latest_scrape(
+    rows: list[ScrapedRow],
+) -> list[tuple[AdvertiserSilver | None, CompanySilver | None, JobListingSilver]]:
+    """One row per Seek job id: keep the bronze row with highest request_timestamp, then highest fetch_record_id."""
+    by_job_id: dict[str, list[ScrapedRow]] = defaultdict(list)
+    for row in rows:
+        by_job_id[row[2].id].append(row)
+
+    out: list[tuple[AdvertiserSilver | None, CompanySilver | None, JobListingSilver]] = []
+    for group in by_job_id.values():
+        winner = max(group, key=lambda r: (r[3], r[2].fetch_record_id))
+        out.append((winner[0], winner[1], winner[2]))
+    return out
+
+
 def load(records: list[tuple[AdvertiserSilver | None, CompanySilver | None, JobListingSilver]]):
     """Load validated records into silver tables. Drops and recreates all tables, then inserts fresh data."""
     Base.metadata.drop_all(bind=engine)
@@ -240,16 +263,19 @@ def run():
         print("No records to process.")
         return
 
-    records = []
-    for fetch_record_id, body in rows:
+    scraped: list[ScrapedRow] = []
+    for fetch_record_id, request_timestamp, body in rows:
         try:
             # body may be dict (from jsonb) or need parsing
             raw = body if isinstance(body, dict) else json.loads(body)
-            records.append(transform(fetch_record_id, raw))
+            advertiser, company, job = transform(fetch_record_id, raw)
+            ts = int(request_timestamp) if request_timestamp is not None else 0
+            scraped.append((advertiser, company, job, ts))
         except Exception as e:
             print(f"Skipping fetch_record_id={fetch_record_id}: {e}")
             continue
 
+    records = dedupe_jobs_latest_scrape(scraped)
     load(records)
     print(f"Loaded {len(records)} job listings to silver.")
 
