@@ -1,6 +1,7 @@
 import os
 
-from sqlalchemy import BigInteger, create_engine, Column, Integer, String, JSON
+from sqlalchemy import BigInteger, Column, Integer, String, Text, create_engine, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, declarative_base
 
 POSTGRES_USER = os.getenv("POSTGRES_USER")
@@ -30,6 +31,26 @@ class FetchRecord(Base):
     request_timestamp = Column(BigInteger)
     options = Column(JSON)
     response_data = Column(JSON, nullable=True)
+
+
+class MitmHttpCapture(Base):
+    """MITM capture when response is JSON (text bodies, metadata only)."""
+
+    __tablename__ = "mitm_http_captures"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # When the backend persisted this row (ms since Unix epoch).
+    captured_at_ms = Column(BigInteger, nullable=False)
+
+    request_method = Column(String(32), nullable=False)
+    request_url = Column(Text, nullable=False)
+    request_headers = Column(JSONB, nullable=False)
+    request_body = Column(Text, nullable=True)
+
+    response_status_code = Column(Integer, nullable=False)
+    response_headers = Column(JSONB, nullable=False)
+    response_body = Column(Text, nullable=True)
+
 
 def create_tables():
     Base.metadata.create_all(bind=engine)

@@ -1,15 +1,14 @@
-from typing import Optional
+import time
 from collections import Counter
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from pydantic import BaseModel
-
 from contextlib import asynccontextmanager
-from database import create_tables, get_session, FetchRecord
+from typing import Optional
+
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from fastapi import Depends, HTTPException
+
+from database import FetchRecord, MitmHttpCapture, create_tables, get_session
 
 
 @asynccontextmanager
@@ -23,6 +22,25 @@ class RecordFetchBody(BaseModel):
     source_url: str
     request_timestamp: int
     options: Optional[dict] = None
+
+
+class MitmRequestPart(BaseModel):
+    method: str
+    url: str
+    headers: dict[str, str]
+    body: Optional[str] = None
+
+
+class MitmResponsePart(BaseModel):
+    status_code: int
+    headers: dict[str, str]
+    body: Optional[str] = None
+
+
+class MitmCaptureCreate(BaseModel):
+    request: MitmRequestPart
+    response: MitmResponsePart
+
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
@@ -72,3 +90,27 @@ def update_fetch_response(record_id: str, body: dict, session: Session = Depends
 @app.get("/get_url_lists")
 def get_url_lists():
     return url_lists
+
+
+@app.post("/mitm/captures")
+def create_mitm_capture(body: MitmCaptureCreate, session: Session = Depends(get_session)):
+    """Persist one JSON HTTP exchange (bodies stored as UTF-8 text)."""
+    captured_at_ms = int(time.time() * 1000)
+    row = MitmHttpCapture(
+        captured_at_ms=captured_at_ms,
+        request_method=body.request.method,
+        request_url=body.request.url,
+        request_headers=body.request.headers,
+        request_body=body.request.body,
+        response_status_code=body.response.status_code,
+        response_headers=body.response.headers,
+        response_body=body.response.body,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return {
+        "message": "Capture recorded",
+        "id": row.id,
+        "captured_at_ms": row.captured_at_ms,
+    }
