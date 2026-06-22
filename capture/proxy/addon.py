@@ -4,7 +4,8 @@ from urllib.error import HTTPError, URLError
 
 from mitmproxy import ctx, http
 
-from capture_common import send_flow_to_backend
+from forwarder import send_flow_to_backend
+
 
 class CaptureAddon:
     def response(self, flow: http.HTTPFlow) -> None:

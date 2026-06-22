@@ -8,13 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import FetchRecord, MitmHttpCapture, create_tables, get_session
+from core.bronze import FetchRecord, MitmHttpCapture, create_tables
+from core.db import get_session
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_tables()
     yield
+
 
 class RecordFetchBody(BaseModel):
     id: str
@@ -54,17 +56,15 @@ app.add_middleware(
 
 url_lists = Counter()
 
+
 @app.get("/")
 def read_root():
     return {"message": "Hello, World!"}
 
+
 @app.post("/record_fetch")
 def record_fetch(body: RecordFetchBody, session: Session = Depends(get_session)):
-    # if body.destination_url != "/graphql":
-    #     return {"message": "Not a graphql request"}
-
     print(f"request to: {body.destination_url} from {body.source_url}")
-    # print(f"options: {body.options.keys()}")
     url_lists[body.destination_url] += 1
 
     record = FetchRecord(
@@ -72,11 +72,12 @@ def record_fetch(body: RecordFetchBody, session: Session = Depends(get_session))
         destination_url=body.destination_url,
         source_url=body.source_url,
         request_timestamp=body.request_timestamp,
-        options=body.options
+        options=body.options,
     )
     session.add(record)
     session.commit()
     return {"message": "Request recorded", "id": body.id}
+
 
 @app.patch("/record_fetch/{record_id}/response")
 def update_fetch_response(record_id: str, body: dict, session: Session = Depends(get_session)):
@@ -86,6 +87,7 @@ def update_fetch_response(record_id: str, body: dict, session: Session = Depends
     record.response_data = body
     session.commit()
     return {"message": "Response received"}
+
 
 @app.get("/get_url_lists")
 def get_url_lists():

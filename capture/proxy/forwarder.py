@@ -52,9 +52,7 @@ def send_flow_to_backend(flow: http.HTTPFlow) -> None:
     if not _is_json_content_type(_media_type(resp.headers.get("Content-Type"))):
         return
     if req.pretty_host == "www.linkedin.com":
-
-        if req.path_components[:3] == ("voyager", "api", "graphql"): 
-
+        if req.path_components[:3] == ("voyager", "api", "graphql"):
             payload = {
                 "request": {
                     "method": req.method,

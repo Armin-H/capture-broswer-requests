@@ -1,15 +1,20 @@
 services:
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: capture/ingest_api/Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/src:/myapp
+      - ./core:/app/core
+      - ./capture:/app/capture
+      - ./adapters:/app/adapters
+      - ./pyproject.toml:/app/pyproject.toml
     env_file:
       - .env.sample
-    command: uvicorn main:app --host "0.0.0.0" --port "8000" --reload 
+    environment:
+      POSTGRES_HOST: db_service
+    command: uvicorn capture.ingest_api.main:app --host "0.0.0.0" --port "8000" --reload
     depends_on:
       - db_service
 
@@ -18,7 +23,7 @@ services:
     command:
       - mitmweb
       - -s
-      - /addon/capture_addon.py
+      - /addon/addon.py
       - --listen-host
       - "0.0.0.0"
       - --listen-port
@@ -27,7 +32,6 @@ services:
       - "0.0.0.0"
       - --web-port
       - "8081"
-      # mitmweb UI password
       - --set
       - web_password=mitm
     environment:
@@ -35,8 +39,7 @@ services:
     depends_on:
       - backend
     volumes:
-      - ./mitm/addon:/addon:ro
-      # mitm CA + state;
+      - ./capture/proxy:/addon:ro
       - mitm_home:/home/mitmproxy/.mitmproxy
     ports:
       - "8080:8080"

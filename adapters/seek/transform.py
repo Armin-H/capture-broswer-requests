@@ -3,89 +3,20 @@ Bronze → Silver ETL: Extract from fetch_records, transform with Pydantic, load
 """
 
 import json
-import os
-import sys
 from collections import defaultdict
-from pathlib import Path
 
-from dotenv import load_dotenv
-from sqlalchemy import (
-    JSON,
-    Column,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    create_engine,
-    text,
-)
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import text
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PROJECT_ROOT))
-load_dotenv(PROJECT_ROOT / ".env.sample")
-
-from seek_job_analytics.models.silver import (
+from adapters.seek.silver import (
+    Advertiser,
     AdvertiserSilver,
+    Company,
     CompanySilver,
+    JobListing,
     JobListingSilver,
+    SilverBase,
 )
-
-# --- DB config ---
-POSTGRES_USER = os.getenv("POSTGRES_USER")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT")
-POSTGRES_DB = os.getenv("POSTGRES_DB")
-DB_URL = f"postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-
-engine = create_engine(DB_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-
-# --- Silver table definitions ---
-class Advertiser(Base):
-    __tablename__ = "advertisers"
-
-    id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)
-
-
-class Company(Base):
-    __tablename__ = "companies"
-
-    id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)
-    rating = Column(Float, nullable=True)
-    num_reviews = Column(Integer, nullable=True)
-    size = Column(String, nullable=True)
-    industry = Column(String, nullable=True)
-    website = Column(String, nullable=True)
-
-
-class JobListing(Base):
-    __tablename__ = "job_listings"
-
-    id = Column(String, primary_key=True)
-    fetch_record_id = Column(Integer, nullable=False)
-    title = Column(String, nullable=False)
-    status = Column(String, nullable=False)
-    content = Column(Text, nullable=False)
-    abstract = Column(Text, nullable=True)
-    listed_at = Column(String, nullable=True)  # ISO string for simplicity
-    location_label = Column(String, nullable=True)
-    location_area = Column(String, nullable=True)
-    location_ids = Column(JSON, nullable=True)
-    classification = Column(String, nullable=True)
-    classification_id = Column(String, nullable=True)
-    sub_classification = Column(String, nullable=True)
-    sub_classification_id = Column(String, nullable=True)
-    salary_label = Column(String, nullable=True)
-    advertiser_id = Column(String, ForeignKey("advertisers.id"), nullable=False)
-    advertiser_name = Column(String, nullable=False)
-    company_id = Column(String, ForeignKey("companies.id"), nullable=True)
+from core.db import SessionLocal, engine
 
 
 def extract():
@@ -127,7 +58,6 @@ def transform(fetch_record_id: int, raw: dict) -> tuple[AdvertiserSilver | None,
     if not job:
         raise ValueError("Missing job in jobDetails")
 
-    # Advertiser (always present on job)
     advertiser = _safe_get(job, "advertiser")
     advertiser_silver = None
     if advertiser:
@@ -136,7 +66,6 @@ def transform(fetch_record_id: int, raw: dict) -> tuple[AdvertiserSilver | None,
             name=advertiser.get("name", ""),
         )
 
-    # Company (may be null)
     company_silver = None
     if company_profile:
         overview = _safe_get(company_profile, "overview")
@@ -151,7 +80,6 @@ def transform(fetch_record_id: int, raw: dict) -> tuple[AdvertiserSilver | None,
             website=_safe_get(overview, "website", "url") if overview else None,
         )
 
-    # Job listing
     tracking = _safe_get(job, "tracking")
     location_info = _safe_get(tracking, "locationInfo") if tracking else None
     classification_info = _safe_get(tracking, "classificationInfo") if tracking else None
@@ -166,7 +94,7 @@ def transform(fetch_record_id: int, raw: dict) -> tuple[AdvertiserSilver | None,
         status=job.get("status", ""),
         content=job.get("content", ""),
         abstract=job.get("abstract"),
-        listed_at=listed_at_raw,  # Pydantic will parse ISO string to datetime
+        listed_at=listed_at_raw,
         location_label=_safe_get(job, "location", "label"),
         location_area=_safe_get(location_info, "area") if location_info else None,
         location_ids=_safe_get(location_info, "locationIds") if location_info else None,
@@ -202,11 +130,10 @@ def dedupe_jobs_latest_scrape(
 
 
 def load(records: list[tuple[AdvertiserSilver | None, CompanySilver | None, JobListingSilver]]):
-    """Load validated records into silver tables. Drops and recreates all tables, then inserts fresh data."""
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    """Load validated records into silver tables. Drops and recreates silver only, then inserts fresh data."""
+    SilverBase.metadata.drop_all(bind=engine)
+    SilverBase.metadata.create_all(bind=engine)
 
-    # Deduplicate advertisers and companies (same entity can appear in multiple job records)
     advertisers: dict[str, AdvertiserSilver] = {}
     companies: dict[str, CompanySilver] = {}
     for advertiser, company, job in records:
@@ -266,7 +193,6 @@ def run():
     scraped: list[ScrapedRow] = []
     for fetch_record_id, request_timestamp, body in rows:
         try:
-            # body may be dict (from jsonb) or need parsing
             raw = body if isinstance(body, dict) else json.loads(body)
             advertiser, company, job = transform(fetch_record_id, raw)
             ts = int(request_timestamp) if request_timestamp is not None else 0
@@ -282,4 +208,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-

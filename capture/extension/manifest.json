@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "data collector",
+  "version": "1.0",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": ["http://localhost:8000/*"],
+  "content_scripts": [
+    {
+      "matches": ["*://*.seek.com.au/*", "*://*.linkedin.com/*"],
+      "js": ["content_bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*.seek.com.au/*", "*://*.linkedin.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
+}
