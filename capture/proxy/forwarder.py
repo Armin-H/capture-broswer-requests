@@ -8,6 +8,8 @@ from mitmproxy import http
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://backend:8000").rstrip("/")
 
+CAPTURE_PATH_PREFIXES = ("/voyager/", "/flagship-web/", "/jobs-guest/")
+
 
 def _media_type(content_type: str | None) -> str | None:
     if not content_type:
@@ -31,6 +33,19 @@ def _body_text(content: bytes | None) -> str | None:
     return content.decode("utf-8", errors="replace")
 
 
+# Old filter (graphql + JSON only):
+# if not _is_json_content_type(_media_type(resp.headers.get("Content-Type"))):
+#     return
+# if req.path_components[:3] == ("voyager", "api", "graphql"):
+
+
+def _should_capture(req: http.Request) -> bool:
+    if req.pretty_host != "www.linkedin.com":
+        return False
+    path = req.path or ""
+    return any(path.startswith(prefix) for prefix in CAPTURE_PATH_PREFIXES)
+
+
 def post_json(url: str, payload: dict) -> None:
     data = json.dumps(payload).encode("utf-8")
     req = Request(
@@ -47,23 +62,22 @@ def send_flow_to_backend(flow: http.HTTPFlow) -> None:
     if not flow.response:
         return
 
-    resp = flow.response
     req = flow.request
-    if not _is_json_content_type(_media_type(resp.headers.get("Content-Type"))):
+    if not _should_capture(req):
         return
-    if req.pretty_host == "www.linkedin.com":
-        if req.path_components[:3] == ("voyager", "api", "graphql"):
-            payload = {
-                "request": {
-                    "method": req.method,
-                    "url": req.url,
-                    "headers": dict(req.headers),
-                    "body": _body_text(req.content),
-                },
-                "response": {
-                    "status_code": resp.status_code,
-                    "headers": dict(resp.headers),
-                    "body": _body_text(resp.content),
-                },
-            }
-            post_json(f"{BACKEND_URL}/mitm/captures", payload)
+
+    resp = flow.response
+    payload = {
+        "request": {
+            "method": req.method,
+            "url": req.url,
+            "headers": dict(req.headers),
+            "body": _body_text(req.content),
+        },
+        "response": {
+            "status_code": resp.status_code,
+            "headers": dict(resp.headers),
+            "body": _body_text(resp.content),
+        },
+    }
+    post_json(f"{BACKEND_URL}/mitm/captures", payload)
