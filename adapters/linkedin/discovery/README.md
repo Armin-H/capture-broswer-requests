@@ -5,9 +5,10 @@ Reverse-engineering notes and notebooks for LinkedIn job pages captured in `mitm
 
 ## Notebooks
 
-| # | Topic | Notebook | Status |
-|---|--------|----------|--------|
-| 01 | Request URL | [01_request_url.ipynb](01_request_url.ipynb) | done |
+| # | Topic | Notebook |
+|---|--------|----------|
+| 01 | Request URL | [01_request_url.ipynb](01_request_url.ipynb) |
+| 02 | Request body | [02_request_body.ipynb](02_request_body.ipynb) |
 
 
 ---
@@ -67,3 +68,58 @@ The suffix is the part after that prefix. Observed suffix values:
 
 - Base64-style string (alphanumeric + `/` + `=`), e.g. `4ruJnbTMxW0=`.
 - Many distinct values across captures (likely per page load / trace).
+
+---
+
+## 02 — Request body
+
+Source: `mitm_http_captures.request_body` on the component path from §01  
+Verified by: [02_request_body.ipynb](02_request_body.ipynb)
+
+### Top level
+
+- JSON body has one key: `clientArguments`.
+
+### `clientArguments`
+
+Nested keys on every component request:
+
+- `payload`
+- `states`
+- `requestMetadata`
+- `screenId`
+
+### `payload`
+
+Observed keys (counts from captures at time of discovery):
+
+| Key | Count |
+|-----|------:|
+| `jobId` | 286 |
+| `isTwoPane` | 119 |
+| `renderAsCard` | 61 |
+| `hideInterestCard` | 29 |
+| `isPremium` | 29 |
+| `profilePicture` | 3 |
+| `profileUrl` | 3 |
+| `isTopApplicant` | 3 |
+| `companyLogo` | 3 |
+| `tooltipLegoTrackingToken` | 3 |
+
+### `states`
+
+- Empty list `[]` on every component request body observed so far.
+
+### `requestMetadata`
+
+- Always:
+  ```json
+  {"$type": "proto.sdui.common.RequestMetadata"}
+  ```
+
+### `screenId`
+
+| Value | Count |
+|-------|------:|
+| `com.linkedin.sdui.flagshipnav.jobs.JobDetails` | 270 |
+| `com.linkedin.sdui.flagshipnav.jobs.SemanticJobDetails` | 16 |
