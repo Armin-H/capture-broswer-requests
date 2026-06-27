@@ -9,6 +9,7 @@ Reverse-engineering notes and notebooks for LinkedIn job pages captured in `mitm
 |---|--------|----------|
 | 01 | Request URL | [01_request_url.ipynb](01_request_url.ipynb) |
 | 02 | Request body | [02_request_body.ipynb](02_request_body.ipynb) |
+| 03 | Response / RSC wire format | [03_rsc_wire_format.ipynb](03_rsc_wire_format.ipynb) |
 
 
 ---
@@ -123,3 +124,40 @@ Observed keys (counts from captures at time of discovery):
 |-------|------:|
 | `com.linkedin.sdui.flagshipnav.jobs.JobDetails` | 270 |
 | `com.linkedin.sdui.flagshipnav.jobs.SemanticJobDetails` | 16 |
+
+---
+
+## 03 — Response body (RSC wire format)
+
+Source: `mitm_http_captures.response_body` on the component path from §01  
+Verified by: [03_rsc_wire_format.ipynb](03_rsc_wire_format.ipynb)
+
+### Format
+
+- Response is **not** a single JSON document — it is a **multiline RSC stream**.
+- Each line: `<chunk_id>:<data>`
+- `chunk_id` is a hexadecimal string (e.g. `6`, `7`, `Q`).
+- The `<data>` part parses as JSON on observed lines.
+
+### RSC element shape
+
+Nested inside parsed chunk data, UI elements appear as four-element lists:
+
+```python
+['$', component_type, key, props_dict]
+```
+
+### `componentId` suffixes with captured responses
+
+Observed when loading job pages:
+
+- `jobAlertToggle`
+- `aboutTheJob`
+- `resumeReview`
+- `premiumApplicantInsightsForJobDetails`
+- `aboutTheCompanyForJobDetails`
+- `premiumCompanyInsightsForJobDetails`
+- `peopleWhoCanHelp`
+- `jobMatch`
+
+Chunk id sets differ by `componentId` suffix (see notebook).
