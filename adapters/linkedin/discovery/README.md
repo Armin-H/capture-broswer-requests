@@ -10,6 +10,7 @@ Reverse-engineering notes and notebooks for LinkedIn job pages captured in `mitm
 | 01 | Request URL | [01_request_url.ipynb](01_request_url.ipynb) |
 | 02 | Request body | [02_request_body.ipynb](02_request_body.ipynb) |
 | 03 | Response / RSC wire format | [03_rsc_wire_format.ipynb](03_rsc_wire_format.ipynb) |
+| 04 | aboutTheJob | [04_about_the_job.ipynb](04_about_the_job.ipynb) |
 
 
 ---
@@ -161,3 +162,35 @@ Observed when loading job pages:
 - `jobMatch`
 
 Chunk id sets differ by `componentId` suffix (see notebook).
+
+---
+
+## 04 — aboutTheJob
+
+Source: `aboutTheJob` rows — component path from §01, `request_body` + `response_body`  
+Verified by: [04_about_the_job.ipynb](04_about_the_job.ipynb)
+
+### Row selection
+
+- Filter captures where `componentId` suffix is `aboutTheJob`.
+- `jobId` is in `clientArguments.payload.jobId` on the matching request body.
+- One `aboutTheJob` response corresponds to one `jobId` (same job may appear in multiple captures).
+
+### Description location
+
+- Job description text is in chunk id **`6`** of the `aboutTheJob` response stream.
+- Parsed chunk `6` is an RSC node: `['$', '$L7', None, props_dict]`.
+- Text tree: `props_dict["textProps"]["children"]`.
+
+### Rendering
+
+Text is built by walking the RSC tree under `textProps.children`:
+
+- string leaves (not starting with `$`) → appended as-is
+- `strong` → `\n## `
+- `li` → `\n- `
+- `br` → newline
+
+### Extract by jobId
+
+Given a `jobId`, find the `aboutTheJob` row whose request body contains that id, parse chunk `6`, render `textProps.children`.
