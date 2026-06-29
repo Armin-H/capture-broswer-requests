@@ -11,6 +11,7 @@ Reverse-engineering notes and notebooks for LinkedIn job pages captured in `mitm
 | 02 | Request body | [02_request_body.ipynb](02_request_body.ipynb) |
 | 03 | Response / RSC wire format | [03_rsc_wire_format.ipynb](03_rsc_wire_format.ipynb) |
 | 04 | aboutTheJob | [04_about_the_job.ipynb](04_about_the_job.ipynb) |
+| 05 | job header | [05_job_header.ipynb](05_job_header.ipynb) |
 
 
 ---
@@ -55,7 +56,7 @@ com.linkedin.sdui.generated.jobseeker.dsl.impl.
 The suffix is the part after that prefix. Observed suffix values:
 
 - `aboutTheJob`
-- `aboutTheCompanyForJobDetails`
+- `aboutTheCompanyForJobDetails` — optional; may be absent for some jobs
 - `premiumApplicantInsightsForJobDetails`
 - `premiumCompanyInsightsForJobDetails`
 - `peopleWhoCanHelp`
@@ -194,3 +195,48 @@ Text is built by walking the RSC tree under `textProps.children`:
 ### Extract by jobId
 
 Given a `jobId`, find the `aboutTheJob` row whose request body contains that id, parse chunk `6`, render `textProps.children`.
+
+Extractor: `adapters/linkedin/extract/about_the_job.py`
+
+---
+
+## aboutTheCompanyForJobDetails
+
+Source: `aboutTheCompanyForJobDetails` rows — same component path and request-body pattern as §04  
+Extractor: `adapters/linkedin/extract/about_the_company.py`
+
+- Same row selection as §04, but filter `componentId` suffix to `aboutTheCompanyForJobDetails`.
+- **This section may be completely missing for a job** — LinkedIn does not always render it, so there may be no matching capture and all extracted fields will be empty.
+
+---
+
+## 05 — job header
+
+Source: `/flagship-web/jobs/search-results/` — not the component path from §01  
+Verified by: [05_job_header.ipynb](05_job_header.ipynb) (capture **3521**, job `4430365784`)
+
+When you open a job from [search results](https://www.linkedin.com/jobs/search-results/) (`currentJobId=...` in the URL), the summary card (title, company, location, badges, apply button) is in this response — not in the later `/rsc-action/actions/component` fetches.
+
+### Row selection
+
+- Filter captures where `request_url` path is `/flagship-web/jobs/search-results/`.
+- `jobId` is the `currentJobId` query param on the request URL (not `clientArguments.payload.jobId`).
+
+### Field locations
+
+Same RSC wire format as §03. Chunk ids vary by capture; locate by content / `observabilityIdentifier`:
+
+| Field | Where |
+|-------|--------|
+| `title`, `company_name` | `...topcard.stickyTopCard` text nodes |
+| `location_label`, `listed_at_label`, `applicant_count_label` | `...topcard.topCard` metadata line (`·`-separated) |
+| `promoted_label`, `application_status_label` | `...topcard.topCard` status text |
+| `workplace_type_label`, `employment_type_label` | preference pill buttons, or `uncategorizedPreferences` in navigate payload |
+| `company_logo_url` | `renderPayload` near the company name |
+| `is_easy_apply` | any chunk with `"text":["Easy Apply"]` |
+
+### Extract by jobId
+
+Given a `jobId`, find the search-results row whose URL contains that `currentJobId`, then walk the RSC stream as above.
+
+Extractor: `adapters/linkedin/extract/job_header.py` → `JobHeaderExtract`
