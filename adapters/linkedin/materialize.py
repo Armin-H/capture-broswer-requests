@@ -4,6 +4,9 @@ from urllib.parse import parse_qs, urlparse
 from sqlalchemy import text
 
 from adapters.linkedin.captures import component_suffix, job_id_from_request_body
+from adapters.linkedin.extract.about_the_company import extract_about_the_company
+from adapters.linkedin.extract.about_the_job import extract_about_the_job
+from adapters.linkedin.extract.job_header import extract_job_header
 from core.db import SessionLocal
 
 GAP_THRESHOLD = timedelta(seconds=3)
@@ -104,11 +107,47 @@ def bundle_rows(rows):
                 current_bundle[component_id] = (url, response_body, captured_at_ms, job_id, component_id)
         prev_job_id = job_id
 
+from dataclasses import dataclass
+from adapters.linkedin.extract.job_header import JobHeaderExtract
+from adapters.linkedin.extract.about_the_company import AboutTheCompanyExtract
+
+@dataclass
+class JobObservation:
+    job_id: str
+    observed_at_ms : int
+    header : JobHeaderExtract | None
+    description: str
+    company : AboutTheCompanyExtract | None
+
+def extract_job_observation(job_id, bundle) -> JobObservation:
+    observed_at_ms = min(row[2] for row in bundle.values())
+    if 'search-results' in bundle:
+        header = extract_job_header(bundle['search-results'][1], job_id=job_id)
+    else:
+        header = None
+    if 'aboutTheJob' in bundle:
+        description = extract_about_the_job(bundle['aboutTheJob'][1])
+    else:
+        description = None
+    if 'aboutTheCompanyForJobDetails' in bundle:
+        company = extract_about_the_company(bundle['aboutTheCompanyForJobDetails'][1])
+    else:
+        company = None
+
+    return JobObservation(job_id=job_id, observed_at_ms=observed_at_ms, header=header, description=description, company=company)
 
 def materialize_observations() -> None:
     rows = select_job_section_captures(fetch_job_capture_rows())
     for job_id, bundle in bundle_rows(rows):
-        print(job_id, bundle.keys())
+        # print(job_id, bundle.keys())
+        obs = extract_job_observation(job_id, bundle)
+        print(obs.job_id)
+        if obs.header:
+            print("  title:", obs.header.title)
+        print("  description len:", len(obs.description or ""))
+        if obs.company:
+            print("  company:", obs.company.name)
+        print('--------------------------------')
 
 
 if __name__ == "__main__":
