@@ -63,7 +63,7 @@ class AboutTheCompanyForJobDetailsObservation(LinkedInJobsBase):
     company_id = Column(String, nullable=True)
     company_url = Column(Text, nullable=True)
     logo_url = Column(Text, nullable=True)
-    description = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
 
 
 class ObservationCapture(LinkedInJobsBase):
@@ -85,4 +85,3 @@ def create_linkedin_jobs_tables() -> None:
     with engine.begin() as conn:
         conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}"))
     LinkedInJobsBase.metadata.create_all(bind=engine)
-    

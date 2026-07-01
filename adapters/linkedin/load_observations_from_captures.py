@@ -1,8 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
-from sqlalchemy import text
+from sqlalchemy import delete, select, text
+from sqlalchemy.orm import Session
 
 from adapters.linkedin.captures import component_suffix, job_id_from_request_body
 from adapters.linkedin.extract.about_the_company import (
@@ -11,6 +12,11 @@ from adapters.linkedin.extract.about_the_company import (
 )
 from adapters.linkedin.extract.about_the_job import extract_about_the_job
 from adapters.linkedin.extract.job_header import JobHeaderExtract, extract_job_header
+from adapters.linkedin.models import (
+    AboutTheCompanyForJobDetailsObservation,
+    JobObservation as JobObservationRow,
+    ObservationCapture,
+)
 from core.db import SessionLocal
 
 GAP_THRESHOLD = timedelta(seconds=3)
@@ -130,8 +136,9 @@ def bundle_rows(rows):
             f"current bundle: {current_bundle.keys()}"
         )
 
+
 @dataclass
-class JobObservation:
+class ExtractedJobObservation:
     job_id: str
     observed_at_ms: int
     header: JobHeaderExtract | None
@@ -140,7 +147,11 @@ class JobObservation:
     capture_ids: dict[str, int]
 
 
-def extract_job_observation(job_id, bundle) -> JobObservation:
+def _extract_has_data(extract) -> bool:
+    return any(getattr(extract, f.name) for f in fields(extract))
+
+
+def extract_job_observation(job_id, bundle) -> ExtractedJobObservation:
     observed_at_ms = min(row[3] for row in bundle.values())
     capture_ids = {section: row[0] for section, row in bundle.items()}
 
@@ -153,11 +164,14 @@ def extract_job_observation(job_id, bundle) -> JobObservation:
     else:
         description = None
     if "aboutTheCompanyForJobDetails" in bundle:
-        company = extract_about_the_company(bundle["aboutTheCompanyForJobDetails"][2])
+        extracted_company = extract_about_the_company(
+            bundle["aboutTheCompanyForJobDetails"][2]
+        )
+        company = extracted_company if _extract_has_data(extracted_company) else None
     else:
         company = None
 
-    return JobObservation(
+    return ExtractedJobObservation(
         job_id=job_id,
         observed_at_ms=observed_at_ms,
         header=header,
@@ -167,18 +181,145 @@ def extract_job_observation(job_id, bundle) -> JobObservation:
     )
 
 
-def materialize_observations() -> None:
+def _build_job_observation_row(obs: ExtractedJobObservation) -> JobObservationRow:
+    header = obs.header
+    return JobObservationRow(
+        job_id=obs.job_id,
+        observed_at_ms=obs.observed_at_ms,
+        title=header.title if header else None,
+        company_name=header.company_name if header else None,
+        location_label=header.location_label if header else None,
+        listed_at_label=header.listed_at_label if header else None,
+        applicant_count_label=header.applicant_count_label if header else None,
+        promoted_label=header.promoted_label if header else None,
+        application_status_label=header.application_status_label if header else None,
+        workplace_type_label=header.workplace_type_label if header else None,
+        employment_type_label=header.employment_type_label if header else None,
+        is_easy_apply=header.is_easy_apply if header else False,
+        description=obs.description,
+    )
+
+
+def _build_about_the_company_row(
+    job_observation_id: int,
+    company: AboutTheCompanyExtract,
+) -> AboutTheCompanyForJobDetailsObservation:
+    return AboutTheCompanyForJobDetailsObservation(
+        job_observation_id=job_observation_id,
+        name=company.name,
+        followers_label=company.followers_label,
+        industry_label=company.industry_label,
+        size_label=company.size_label,
+        linkedin_headcount_label=company.linkedin_headcount_label,
+        company_id=company.company_id,
+        company_url=company.company_url,
+        logo_url=company.logo_url,
+        description=company.description,
+    )
+
+
+def _build_observation_capture_rows(
+    job_observation_id: int,
+    capture_ids: dict[str, int],
+) -> list[ObservationCapture]:
+    return [
+        ObservationCapture(
+            job_observation_id=job_observation_id,
+            mitm_capture_id=capture_id,
+            section=section,
+        )
+        for section, capture_id in capture_ids.items()
+    ]
+
+
+def _observation_already_persisted(session: Session, capture_ids: dict[str, int]) -> bool:
+    if not capture_ids:
+        return False
+    return (
+        session.scalars(
+            select(ObservationCapture.id)
+            .where(ObservationCapture.mitm_capture_id.in_(capture_ids.values()))
+            .limit(1)
+        ).first()
+        is not None
+    )
+
+
+def _delete_observations_for_capture_ids(session: Session, capture_ids: dict[str, int]) -> None:
+    job_observation_ids = session.scalars(
+        select(ObservationCapture.job_observation_id)
+        .where(ObservationCapture.mitm_capture_id.in_(capture_ids.values()))
+        .distinct()
+    ).all()
+    for job_observation_id in job_observation_ids:
+        session.execute(
+            delete(ObservationCapture).where(
+                ObservationCapture.job_observation_id == job_observation_id
+            )
+        )
+        session.execute(
+            delete(AboutTheCompanyForJobDetailsObservation).where(
+                AboutTheCompanyForJobDetailsObservation.job_observation_id == job_observation_id
+            )
+        )
+        session.execute(
+            delete(JobObservationRow).where(JobObservationRow.id == job_observation_id)
+        )
+
+
+def insert_job_observation(
+    session: Session,
+    obs: ExtractedJobObservation,
+    *,
+    rewrite: bool = False,
+) -> int | None:
+    if obs.description is None:
+        print(f"warning: skipping observation for job {obs.job_id}, no description")
+        return None
+
+    with session.begin():
+        already_persisted = _observation_already_persisted(session, obs.capture_ids)
+        if already_persisted and not rewrite:
+            return None
+
+        if already_persisted and rewrite:
+            _delete_observations_for_capture_ids(session, obs.capture_ids)
+
+        row = _build_job_observation_row(obs)
+        session.add(row)
+        session.flush()
+
+        if obs.company is not None:
+            session.add(_build_about_the_company_row(row.id, obs.company))
+
+        for capture_row in _build_observation_capture_rows(row.id, obs.capture_ids):
+            session.add(capture_row)
+
+        return row.id
+
+
+def load_observations_from_captures(*, rewrite: bool = False) -> None:
     rows = select_job_section_captures(fetch_job_capture_rows())
-    for job_id, bundle in bundle_rows(rows):
-        obs = extract_job_observation(job_id, bundle)
-        print(obs.job_id, obs.capture_ids)
-        if obs.header:
-            print("  title:", obs.header.title)
-        print("  description len:", len(obs.description or ""))
-        if obs.company:
-            print("  company:", obs.company.name)
-        print("--------------------------------")
+    inserted = 0
+    skipped = 0
+    with SessionLocal() as session:
+        for job_id, bundle in bundle_rows(rows):
+            obs = extract_job_observation(job_id, bundle)
+            if obs.description is None:
+                print("error : no description", job_id)
+            if not rewrite and _observation_already_persisted(session, obs.capture_ids):
+                skipped += 1
+                continue
+            if insert_job_observation(session, obs, rewrite=rewrite) is not None:
+                inserted += 1
+    print(f"inserted {inserted} observations, skipped {skipped} duplicates")
+
+
+def main() -> None:
+    import sys
+
+    load_observations_from_captures(rewrite="--rewrite" in sys.argv)
 
 
 if __name__ == "__main__":
-    materialize_observations()
+    main()
