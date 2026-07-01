@@ -1,0 +1,23 @@
+Slater and Gordon Lawyers are a leading personal injury and class actions law firm where every member of our team has a shared passion for our clients: we are people caring for people.Our commitment to our people includes offering genuine work-life balance, with a hybrid work environment allowing them to split their time between home and the office. We recognise and reward high performance and have outstanding employee benefits including a week of shutdown leave, paid parental leave, extra-long service leave, together with various ongoing learning and professional development opportunities.
+
+## About the roleWe are building a rapidly maturing enterprise AI capability and are now ready to take it to the next level. This is a hands-on engineering role for someone who loves turning ideas into real, production ready AI tools that people actually use. You will join an established and highly capable team, working across the full lifecycle from concept through to deployment, helping shape how AI is designed, delivered and scaled across the organisation.This role blends strong software engineering with modern AI practices. You will design, build and operate AI powered services on Azure, develop shared tooling and frameworks, and partner closely with data, architecture, security and business teams to deliver secure, reliable and valuable AI solutions
+
+## What you’ll do?
+- Design, build and evolve core services that power our enterprise AI platform
+- Deliver high impact AI use cases from discovery through to production
+- Build reusable libraries, templates and tooling to accelerate delivery across teams
+- Develop secure integrations with enterprise systems and data platforms
+- Implement CI/CD pipelines, automated testing and infrastructure as code
+- Embed Responsible AI, privacy and security controls into everything you build
+- Mentor junior engineers and contribute to strong engineering practices
+- Collaborate closely with architects, data engineers, MLOps, security and senior leaders
+
+## What will you bring?You will be a strong Python engineer with solid software development fundamentals, comfortable designing and building production grade systems. You will have experience delivering AI solutions beyond proof of concept and into live environments, and enjoy working across the full development lifecycle. You will bring a practical understanding of generative AI, large language models and modern AI frameworks, along with experience building APIs, services and integrations. You will be comfortable working in agile environments, collaborating with a wide range of technical and non-technical stakeholders, and balancing speed with quality, security and governance. Experience working with Azure, CI/CD pipelines and modern DevOps practices will be highly regarded, along with a mindset focused on learning, experimentation and continuous improvement
+
+## What next?If you are interested in this opportunity, please apply directly to Slater and Gordon. We prefer to talk with you personally and are not accepting applications from recruitment agencies.
+
+## To be eligible for this position, you must be an Australian citizen, a permanent resident, or hold a valid visa with full and unrestricted working rights in Australia. Proof of work rights will be required as part of the Slater and Gordon application process. 
+
+## Acknowledgement of Country Slater and Gordon acknowledges the Traditional Custodians of country throughout Australia and their connections to land, sea and community. We pay our respect to their elders past and present and extend that respect to all First Nations peoples today.
+
+## Diversity + Inclusion Slater and Gordon is committed to creating an inclusive workplace that values diversity and ensures equal opportunities for all. Slater and Gordon is an equal opportunity employer, and does not discriminate on the basis of race, national origin, gender, gender identity, sexual orientation, disability, age, or other legally protected attributes. We understand that everyone has different needs. If you require reasonable adjustments throughout the recruitment process, please let us know in your application.

@@ -1,0 +1,75 @@
+## Job Description
+
+Practice Specialist Solution Architect
+
+
+
+We are seeking an experienced Practice Specialist/Solution Architect with Application modernization and integration expertise for our Industry Cloud and Digital portfolio. The successful candidate will be directly accountable for supporting and driving solutions focused around application modernization, integration and fullstack engineering requirements. The Practice Specialist must have deep expertise around application modernization, should have worked on solutioning/delivering several application modernization/transformation engagements. He/she will work with various practices within the Service line to conceptualize and stitch solutions tailored to client needs, during proposal development. A deep understanding of the capabilities within the Wipro Industry Cloud and Digital service line, fostering relationships with different practices, and effectively navigating through the ecosystem as a preferred partner are essential for growth in this role. Candidates should have a solution architecture background and an ideal candidate would have strong architectural background and played a role of an application modernization architect in their career.
+
+
+
+
+## Responsibilities
+
+
+-  Lead client discussions with a high degree of technical or process depth: convert the business problem into technology or business process implications to build high-level roadmap to deliver business impact.
+-  Leverage the use of GenAI technologies in SDLC to drive improved efficiencies and usage of GenAI solutions for forward/reverse engineering of legacy applications.
+-  Expertise on microservices architecture, and working exposure across iPaaS integration solutions like Boomi, Azure integration, Tibco, Webmethods, Workato, etc.
+-  Exposure on API/AI gateways like Kong, Workato , Azure iPaas, AWS API gateway
+-  Lead the solution build and create a strong client value proposition.
+-  Work as the Solution Architects to design a solution blueprint which meets the client’s technical needs.
+-  Build credibility and conviction in technical solution – provide recommendations on breadth of topics in respective specialization.
+-  Collate best practices and create reusable assets
+
+
+## Experience
+
+
+-  12-15 years or more of cross IT industry experience delivering Digital Transformation/Platform Engineering/Application management programs.
+-  Minimum of 3-4 years’ experience in solution architecture related to Application modernization/Cloud-native application development (not infrastructure lift and shift migration) and integration modernization.
+-  Strong experience in large transformation of applications for customers using cloud technology with Cloud native, Open Source, DevSecOps, Containers and modern data ecosystem
+-  Familiarity with GenAI solutions used for code generation, content generation, automation etc relevant in the cloud ecosystems.
+-  Demonstrated ability to create differentiated proposals within large enterprise accounts
+-  Knowledge of current market trends, risks and prevalent technologies used in the industry.
+-  Good written and verbal communication skills to effectively articulate complex cloud concepts
+
+
+## Qualifications
+
+
+-  Previous experience within a Systems integrator or Consulting organisation, providing consulting services or engagement management
+-  Bachelor's degree in business, computer science, Information Technology or related field. While not mandatory, will be well regarded
+-  Cloud Certifications at associate or professional/expert level in but not limited to AWS, Azure or GCP highly regarded
+
+͏
+
+
+## Working With Wipro
+
+With our business almost doing a complete 180-degree shift in the last 18 months, changing our model, our ethos and the way we truly partner with our customers around the world, we’re looking for people who always find new boundaries to cross - a future Wiproite who will obsess over excellence and make constant improvements for our customers. We’ve look for leaders in every aspect, not just job title, so if you see a problem, take ownership of the solution.
+
+We pride ourselves on creating an inclusive workplace that provides equal opportunities to all persons regardless of their age, cultural background, sexual orientation, gender identity and expression, disability, veteran status, or anything else.
+
+Benefits @ Wipro
+
+
+-  Flexible working culture
+-  Excellent remuneration package
+-  Flexibility to put your family first at all times
+-  Ongoing training and development to help you reach your full potential
+-  Collaborative team - positive and empathetic people who love to laugh either through social distancing in the office or virtually from home!
+-  Fun team with high-growth hustle
+-  Team building, fun activities and social events
+-  Career Progression
+
+"Wipro is an Equal Employment Opportunity employer and makes all employment and employment-related decisions without regard to a person's race, sex, national origin, ancestry, disability, sexual orientation, or any other status protected by applicable law”
+
+͏
+
+͏
+
+Mandatory Skills: GenAI Consulting for Apps & Infra .
+
+Experience: >10 YEARS
+
+Reinvent your world. We are building a modern Wipro. We are an end-to-end digital transformation partner with the boldest ambitions. To realize them, we need people inspired by reinvention. Of yourself, your career, and your skills. We want to see the constant evolution of our business and our industry. It has always been in our DNA - as the world around us changes, so do we. Join a business powered by purpose and a place that empowers you to design your own reinvention.

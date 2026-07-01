@@ -12,6 +12,7 @@ Reverse-engineering notes and notebooks for LinkedIn job pages captured in `mitm
 | 03 | Response / RSC wire format | [03_rsc_wire_format.ipynb](03_rsc_wire_format.ipynb) |
 | 04 | aboutTheJob | [04_about_the_job.ipynb](04_about_the_job.ipynb) |
 | 05 | job header | [05_job_header.ipynb](05_job_header.ipynb) |
+| 06 | embedded chunk 6 (aboutTheJob) | [06_missing_job_description.ipynb](06_missing_job_description.ipynb) |
 
 
 ---
@@ -182,6 +183,7 @@ Verified by: [04_about_the_job.ipynb](04_about_the_job.ipynb)
 - Job description text is in chunk id **`6`** of the `aboutTheJob` response stream.
 - Parsed chunk `6` is an RSC node: `['$', '$L7', None, props_dict]`.
 - Text tree: `props_dict["textProps"]["children"]`.
+- **Embedded variant:** some responses have no standalone `6:` line — chunk `6` is nested inside another chunk’s payload (e.g. `9`), with intro text in a `T<id>,…` prefix referenced as `$9` in the tree. See [06_missing_job_description.ipynb](06_missing_job_description.ipynb).
 
 ### Rendering
 
