@@ -1,5 +1,5 @@
 from dataclasses import dataclass, fields
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from urllib.parse import parse_qs, urlparse
 
 from sqlalchemy import delete, select, text
@@ -29,8 +29,28 @@ _JOB_SECTION_SUFFIXES = ("aboutTheJob", "aboutTheCompanyForJobDetails")
 SectionCapture = tuple[int, str, str, int, str, str]
 
 
-def fetch_job_capture_rows():
-    query = text("""
+def today_capture_range_ms() -> tuple[int, int]:
+    today = datetime.now().date()
+    start = datetime.combine(today, time.min)
+    end = datetime.combine(today + timedelta(days=1), time.min)
+    return int(start.timestamp() * 1000), int(end.timestamp() * 1000)
+
+
+def fetch_job_capture_rows(
+    *,
+    since_captured_at_ms: int | None = None,
+    until_captured_at_ms: int | None = None,
+):
+    extra_clauses: list[str] = []
+    params: dict[str, int] = {}
+    if since_captured_at_ms is not None:
+        extra_clauses.append("AND captured_at_ms >= :since_captured_at_ms")
+        params["since_captured_at_ms"] = since_captured_at_ms
+    if until_captured_at_ms is not None:
+        extra_clauses.append("AND captured_at_ms < :until_captured_at_ms")
+        params["until_captured_at_ms"] = until_captured_at_ms
+
+    query = text(f"""
         SELECT id, request_url, request_body, response_body, captured_at_ms
         FROM mitm_http_captures
         WHERE (
@@ -38,10 +58,11 @@ def fetch_job_capture_rows():
             OR request_url LIKE '%/flagship-web/jobs/search-results/%'
         )
         AND response_body IS NOT NULL
+        {" ".join(extra_clauses)}
         ORDER BY captured_at_ms DESC
     """)
     with SessionLocal() as session:
-        return list(session.execute(query).fetchall())
+        return list(session.execute(query, params).fetchall())
 
 
 def format_captured_at(captured_at_ms: int) -> str:
@@ -272,15 +293,14 @@ def insert_job_observation(
     obs: ExtractedJobObservation,
     *,
     rewrite: bool = False,
-) -> int | None:
+) -> int:
     if obs.description is None:
-        print(f"warning: skipping observation for job {obs.job_id}, no description")
-        return None
+        raise ValueError(f"no description for job {obs.job_id}, captures={obs.capture_ids}")
 
     with session.begin():
         already_persisted = _observation_already_persisted(session, obs.capture_ids)
         if already_persisted and not rewrite:
-            return None
+            return -1
 
         if already_persisted and rewrite:
             _delete_observations_for_capture_ids(session, obs.capture_ids)
@@ -298,27 +318,58 @@ def insert_job_observation(
         return row.id
 
 
-def load_observations_from_captures(*, rewrite: bool = False) -> None:
-    rows = select_job_section_captures(fetch_job_capture_rows())
+def load_observations_from_captures(
+    *,
+    rewrite: bool = False,
+    since_captured_at_ms: int | None = None,
+    until_captured_at_ms: int | None = None,
+) -> None:
+    rows = select_job_section_captures(
+        fetch_job_capture_rows(
+            since_captured_at_ms=since_captured_at_ms,
+            until_captured_at_ms=until_captured_at_ms,
+        )
+    )
     inserted = 0
     skipped = 0
+    failed = 0
     with SessionLocal() as session:
         for job_id, bundle in bundle_rows(rows):
-            obs = extract_job_observation(job_id, bundle)
-            if obs.description is None:
-                print("error : no description", job_id)
-            if not rewrite and _observation_already_persisted(session, obs.capture_ids):
-                skipped += 1
+            try:
+                obs = extract_job_observation(job_id, bundle)
+                row_id = insert_job_observation(session, obs, rewrite=rewrite)
+                if row_id == -1:
+                    skipped += 1
+                else:
+                    inserted += 1
+            except ValueError as exc:
+                failed += 1
+                capture_ids = {section: row[0] for section, row in bundle.items()}
+                print(f"warning: skipping job {job_id}, captures={capture_ids}: {exc}")
                 continue
-            if insert_job_observation(session, obs, rewrite=rewrite) is not None:
-                inserted += 1
     print(f"inserted {inserted} observations, skipped {skipped} duplicates")
 
 
 def main() -> None:
-    import sys
+    import argparse
 
-    load_observations_from_captures(rewrite="--rewrite" in sys.argv)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rewrite", action="store_true")
+    since_group = parser.add_mutually_exclusive_group()
+    since_group.add_argument("--since-ms", type=int, dest="since_ms")
+    since_group.add_argument("--today", action="store_true")
+    args = parser.parse_args()
+
+    since_ms = args.since_ms
+    until_ms = None
+    if args.today:
+        since_ms, until_ms = today_capture_range_ms()
+
+    load_observations_from_captures(
+        rewrite=args.rewrite,
+        since_captured_at_ms=since_ms,
+        until_captured_at_ms=until_ms,
+    )
 
 
 if __name__ == "__main__":
