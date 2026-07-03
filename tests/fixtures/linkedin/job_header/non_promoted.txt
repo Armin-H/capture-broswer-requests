@@ -1,0 +1,1 @@
+28:["$","div",null,{"children":["South Australia Police","Data Analyst","Adelaide, South Australia, Australia","2 weeks ago","Over 100 people clicked apply","Responses managed off LinkedIn"]}]

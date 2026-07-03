@@ -14,8 +14,10 @@ from adapters.linkedin.extract.about_the_job import extract_about_the_job
 from adapters.linkedin.extract.job_header import JobHeaderExtract, extract_job_header
 from adapters.linkedin.models import (
     AboutTheCompanyForJobDetailsObservation,
-    JobObservation as JobObservationRow,
     ObservationCapture,
+)
+from adapters.linkedin.models import (
+    JobObservation as JobObservationRow,
 )
 from core.db import SessionLocal
 
@@ -117,7 +119,10 @@ def bundle_rows(rows):
             component_id,
         )
         if prev_job_id and prev_job_id != job_id:
-            if "aboutTheJob" in current_bundle and "aboutTheCompanyForJobDetails" in current_bundle:
+            if (
+                "aboutTheJob" in current_bundle
+                and "aboutTheCompanyForJobDetails" in current_bundle
+            ):
                 yield prev_job_id, current_bundle
                 current_bundle = {component_id: row}
                 prev_job_id = job_id
@@ -149,7 +154,10 @@ def bundle_rows(rows):
                 current_bundle[component_id] = row
         prev_job_id = job_id
 
-    if "aboutTheJob" in current_bundle and "aboutTheCompanyForJobDetails" in current_bundle:
+    if (
+        "aboutTheJob" in current_bundle
+        and "aboutTheCompanyForJobDetails" in current_bundle
+    ):
         yield prev_job_id, current_bundle
     elif current_bundle:
         print(
@@ -209,14 +217,11 @@ def _build_job_observation_row(obs: ExtractedJobObservation) -> JobObservationRo
         observed_at_ms=obs.observed_at_ms,
         title=header.title if header else None,
         company_name=header.company_name if header else None,
-        location_label=header.location_label if header else None,
-        listed_at_label=header.listed_at_label if header else None,
-        applicant_count_label=header.applicant_count_label if header else None,
-        promoted_label=header.promoted_label if header else None,
-        application_status_label=header.application_status_label if header else None,
-        workplace_type_label=header.workplace_type_label if header else None,
-        employment_type_label=header.employment_type_label if header else None,
-        is_easy_apply=header.is_easy_apply if header else False,
+        location=header.location if header else None,
+        listed_at=header.listed_at if header else None,
+        apply_count=header.apply_count if header else None,
+        promoted=header.promoted if header else None,
+        hiring_insights=header.hiring_insights if header else None,
         description=obs.description,
     )
 
@@ -253,7 +258,9 @@ def _build_observation_capture_rows(
     ]
 
 
-def _observation_already_persisted(session: Session, capture_ids: dict[str, int]) -> bool:
+def _observation_already_persisted(
+    session: Session, capture_ids: dict[str, int]
+) -> bool:
     if not capture_ids:
         return False
     return (
@@ -266,7 +273,9 @@ def _observation_already_persisted(session: Session, capture_ids: dict[str, int]
     )
 
 
-def _delete_observations_for_capture_ids(session: Session, capture_ids: dict[str, int]) -> None:
+def _delete_observations_for_capture_ids(
+    session: Session, capture_ids: dict[str, int]
+) -> None:
     job_observation_ids = session.scalars(
         select(ObservationCapture.job_observation_id)
         .where(ObservationCapture.mitm_capture_id.in_(capture_ids.values()))
@@ -280,7 +289,8 @@ def _delete_observations_for_capture_ids(session: Session, capture_ids: dict[str
         )
         session.execute(
             delete(AboutTheCompanyForJobDetailsObservation).where(
-                AboutTheCompanyForJobDetailsObservation.job_observation_id == job_observation_id
+                AboutTheCompanyForJobDetailsObservation.job_observation_id
+                == job_observation_id
             )
         )
         session.execute(
@@ -295,7 +305,9 @@ def insert_job_observation(
     rewrite: bool = False,
 ) -> int:
     if obs.description is None:
-        raise ValueError(f"no description for job {obs.job_id}, captures={obs.capture_ids}")
+        raise ValueError(
+            f"no description for job {obs.job_id}, captures={obs.capture_ids}"
+        )
 
     with session.begin():
         already_persisted = _observation_already_persisted(session, obs.capture_ids)

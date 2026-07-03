@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -55,9 +57,7 @@ def get_path(obj: Any, *keys: str) -> Any:
     return obj
 
 
-def extract_embedded_chunk_json(
-    raw: str, chunk_id: str
-) -> tuple[Any, int] | None:
+def extract_embedded_chunk_json(raw: str, chunk_id: str) -> tuple[Any, int] | None:
     """Parse a chunk payload embedded inside another chunk's raw string."""
     marker = f"{chunk_id}:"
     start = raw.find(marker)
@@ -148,3 +148,99 @@ def render_text(
 def iter_chunk_nodes(response_body: str) -> Iterator[tuple[str, Any]]:
     for chunk_id, data in parse_stream(response_body).items():
         yield chunk_id, json.loads(data)
+
+
+# --- component tree (parsed RSC JSON → traversable Node tree) ---
+
+_MODULE_RE = re.compile(r'^I\["[^"]*",\[\],"([^"]+)"\]$')
+
+
+def build_module_lookup(chunks: dict[str, str]) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for chunk_id, value in chunks.items():
+        match = _MODULE_RE.match(value)
+        if match:
+            lookup[chunk_id] = match.group(1)
+    return lookup
+
+
+@dataclass
+class Node:
+    kind: str
+    value: str | None = None
+    parent: Node | None = None
+    children: list[Node] = field(default_factory=list)
+
+    def add(self, child: Node) -> None:
+        child.parent = self
+        self.children.append(child)
+
+
+class Tree:
+    def __init__(self, root: Node) -> None:
+        self.root = root
+
+    def walk(self):
+        yield from self._walk(self.root)
+
+    def _walk(self, node: Node):
+        yield node
+        for child in node.children:
+            yield from self._walk(child)
+
+    def find_strings(self, text: str):
+        for node in self.walk():
+            if node.kind == "str" and node.value == text:
+                yield node
+
+    def strings(self):
+        for node in self.walk():
+            if node.kind == "str":
+                yield node
+
+
+class ComponentTreeBuilder:
+    def __init__(self, module_lookup: dict[str, str]) -> None:
+        self.module_lookup = module_lookup
+
+    def build(self, parsed: Any) -> Tree:
+        root = Node("ROOT")
+        self._visit(parsed, root)
+        return Tree(root)
+
+    def _visit(self, obj: Any, parent: Node) -> None:
+        if isinstance(obj, dict):
+            if "children" in obj:
+                children = obj["children"]
+                if isinstance(children, list):
+                    for child in children:
+                        self._visit(child, parent)
+                elif isinstance(children, str):
+                    parent.add(Node("str", children))
+            elif "textProps" in obj:
+                self._visit(obj["textProps"], parent)
+            return
+
+        if isinstance(obj, list):
+            if len(obj) == 4 and obj[0] == "$":
+                tag = obj[1]
+                if tag.startswith("$L"):
+                    kind = self.module_lookup.get(tag[2:], tag)
+                elif tag.startswith("$"):
+                    kind = f"ref({tag})"
+                else:
+                    kind = f"RSCNode({tag})"
+                node = Node(kind)
+                parent.add(node)
+                self._visit(obj[3], node)
+                return
+            for child in obj:
+                self._visit(child, parent)
+            return
+
+        if isinstance(obj, str) and not obj.startswith("$"):
+            parent.add(Node("str", obj))
+
+
+def build_component_tree(chunks: dict[str, str], parsed: Any) -> Tree:
+    return ComponentTreeBuilder(build_module_lookup(chunks)).build(parsed)

@@ -31,14 +31,11 @@ class JobObservation(LinkedInJobsBase):
 
     title = Column(String, nullable=True)
     company_name = Column(String, nullable=True)
-    location_label = Column(String, nullable=True)
-    listed_at_label = Column(String, nullable=True)
-    applicant_count_label = Column(String, nullable=True)
-    promoted_label = Column(String, nullable=True)
-    application_status_label = Column(String, nullable=True)
-    workplace_type_label = Column(String, nullable=True)
-    employment_type_label = Column(String, nullable=True)
-    is_easy_apply = Column(Boolean, nullable=False, default=False)
+    location = Column(String, nullable=True)
+    listed_at = Column(String, nullable=True)
+    apply_count = Column(String, nullable=True)
+    promoted = Column(Boolean, nullable=False, default=False)
+    hiring_insights = Column(String, nullable=True)
     description = Column(Text, nullable=False)
 
 

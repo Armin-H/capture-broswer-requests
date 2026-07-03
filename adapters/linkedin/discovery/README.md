@@ -13,6 +13,7 @@ Reverse-engineering notes and notebooks for LinkedIn job pages captured in `mitm
 | 04 | aboutTheJob | [04_about_the_job.ipynb](04_about_the_job.ipynb) |
 | 05 | job header | [05_job_header.ipynb](05_job_header.ipynb) |
 | 06 | embedded chunk 6 (aboutTheJob) | [06_missing_job_description.ipynb](06_missing_job_description.ipynb) |
+| 07 | missing job header | [07_missing_job_header.ipynb](07_missing_job_header.ipynb) |
 
 
 ---
@@ -242,3 +243,16 @@ Same RSC wire format as §03. Chunk ids vary by capture; locate by content / `ob
 Given a `jobId`, find the search-results row whose URL contains that `currentJobId`, then walk the RSC stream as above.
 
 Extractor: `adapters/linkedin/extract/job_header.py` → `JobHeaderExtract`
+
+---
+
+## 07 — missing job header
+
+Source: same path as §05  
+Verified by: [07_missing_job_header.ipynb](07_missing_job_header.ipynb) (capture **5143**, job `4428420015`)
+
+The observability-based approach in §05 fails when `topcard.topCard` markers are absent. Fix: parse chunk **`28`** as a component tree and read ordered string nodes.
+
+Generic tree parser (from this notebook) lives in `adapters/linkedin/rsc.py` — `build_module_lookup`, `ComponentTreeBuilder`, `build_component_tree`.
+
+Header extraction: `adapters/linkedin/extract/job_header.py`.
