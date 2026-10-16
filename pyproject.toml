@@ -9,6 +9,8 @@ dependencies = [
     "sqlalchemy",
     "pydantic",
     "python-dotenv",
+    "openai>=2.45.0",
+    "instructor>=1.15.4",
 ]
 
 [project.optional-dependencies]
@@ -26,7 +28,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "capture*", "adapters*"]
+include = ["core*", "capture*", "adapters*", "enrichment*"]
 
 [tool.ruff]
 line-length = 88
